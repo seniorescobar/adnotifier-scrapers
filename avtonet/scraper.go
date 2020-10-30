@@ -12,20 +12,22 @@ import (
 	"time"
 
 	scrapers "github.com/seniorescobar/adnotifier-scrapers"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Scraper struct{}
 
 func (s *Scraper) Scrape(ctx context.Context, url string) ([]*scrapers.Item, error) {
-	r, err := fetch(ctx, url)
+	r, err := s.fetch(ctx, url)
 	if err != nil {
 		return nil, err
 	}
 
-	return processItems(r)
+	return s.processItems(r)
 }
 
-func processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
+func (s *Scraper) processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
 	bodyBytes, err := ioutil.ReadAll(body)
 	if err != nil {
 		return nil, err
@@ -56,7 +58,7 @@ func processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
 	return items, nil
 }
 
-func fetch(ctx context.Context, url string) (io.ReadCloser, error) {
+func (s *Scraper) fetch(ctx context.Context, url string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -64,8 +66,13 @@ func fetch(ctx context.Context, url string) (io.ReadCloser, error) {
 
 	req.Header.Add("Accept-Encoding", "gzip")
 
+	proxyURL, _ := http.ProxyFromEnvironment(req)
+	if proxyURL != nil {
+		log.WithField("url", proxyURL).Debug("using proxy")
+	}
+
 	client := &http.Client{
-		Timeout: time.Second * 30,
+		Timeout: 30 * time.Second,
 	}
 
 	res, err := client.Do(req)
