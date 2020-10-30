@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	scrapers "github.com/seniorescobar/adnotifier-scrapers"
@@ -61,6 +60,8 @@ func fetch(url string) (io.ReadCloser, error) {
 }
 
 func process(body io.ReadCloser) ([]*scrapers.Item, error) {
+	defer body.Close()
+
 	type (
 		item struct {
 			ID  int    `json:"id"`
@@ -71,14 +72,8 @@ func process(body io.ReadCloser) ([]*scrapers.Item, error) {
 		}
 	)
 
-	bodyBytes, err := ioutil.ReadAll(body)
-	if err != nil {
-		return nil, err
-	}
-	body.Close()
-
 	var r response
-	if err := json.Unmarshal(bodyBytes, &r); err != nil {
+	if err := json.NewDecoder(body).Decode(&r); err != nil {
 		return nil, err
 	}
 
