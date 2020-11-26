@@ -1,6 +1,7 @@
 package nepremicnine
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,13 +13,13 @@ import (
 )
 
 const (
-	itemSelector = `div.seznam > div.oglas_container > div > a.slika`
+	itemSelector = `div.seznam > div.oglas_container > div > meta[itemprop=mainEntityOfPage]`
 )
 
 type Scraper struct{}
 
-func (s *Scraper) Scrape(url string) ([]*scrapers.Item, error) {
-	r, err := fetch(url)
+func (s *Scraper) Scrape(ctx context.Context, url string) ([]*scrapers.Item, error) {
+	r, err := fetch(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -44,21 +45,26 @@ func processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
 	}
 
 	itemNodes.Each(func(i int, s *goquery.Selection) {
-		path, ok := s.Attr("href")
+		path, ok := s.Attr("content")
 		if !ok {
-			log.Error(`attribute "href" does not exist`)
+			log.Error(`attribute does not exist`)
 			return
 		}
 
-		item := scrapers.Item("https://www.nepremicnine.net/" + path)
+		item := scrapers.Item(path)
 		items = append(items, &item)
 	})
 
 	return items, nil
 }
 
-func fetch(url string) (io.ReadCloser, error) {
-	res, err := http.Get(url)
+func fetch(ctx context.Context, url string) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
