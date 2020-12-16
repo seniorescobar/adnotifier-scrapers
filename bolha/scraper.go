@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	baseURL      = "https://www.bolha.com"
 	itemSelector = `div.EntityList > ul.EntityList-items > li.EntityList-item--Regular`
 )
 
@@ -25,13 +26,13 @@ func (s *Scraper) Scrape(ctx context.Context, url string) ([]*scrapers.Item, err
 	}
 	defer r.Close()
 
-	return processItems(r)
+	return extractItems(r)
 }
 
-func processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
+func extractItems(body io.Reader) ([]*scrapers.Item, error) {
 	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	items := make([]*scrapers.Item, 0)
@@ -49,7 +50,7 @@ func processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
 			return
 		}
 
-		item := scrapers.Item("https://www.bolha.com" + path)
+		item := scrapers.Item(baseURL + path)
 		items = append(items, &item)
 	})
 
@@ -67,7 +68,7 @@ func fetch(ctx context.Context, url string) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("invalid status code (%d)", res.StatusCode)
 	}
 
