@@ -1,3 +1,5 @@
 package scrapers
 
-type Item string
+type Item struct {
+	URL string
+}
