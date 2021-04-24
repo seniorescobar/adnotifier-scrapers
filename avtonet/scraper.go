@@ -3,43 +3,72 @@ package avtonet
 import (
 	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"time"
 
 	scrapers "github.com/seniorescobar/adnotifier-scrapers"
 
 	log "github.com/sirupsen/logrus"
 )
 
-type Scraper struct{}
+var (
+	// adPattern is a pattern for matching new ad urls.
+	adPattern = regexp.MustCompile(`/Ads/details\.asp\?id=\d+`)
 
+	// headers are added to the request.
+	headers = map[string]string{
+		"User-Agent":                " Mozilla/5.0 (X11; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0",
+		"Accept":                    " text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+		"Accept-Language":           " en-US,en;q=0.5",
+		"Accept-Encoding":           "gzip",
+		"DNT":                       " 1",
+		"Connection":                " keep-alive",
+		"Cookie":                    " ogledov=; CookieConsent=-2",
+		"Upgrade-Insecure-Requests": " 1",
+		"Cache-Control":             " max-age=0",
+	}
+)
+
+// Scraper represents an AvtoNet Scraper.
+type Scraper struct {
+	httpClient http.Client
+}
+
+// NewScraper creates an instance of AvtoNet Scraper.
+func NewScraper(httpClient http.Client) *Scraper {
+	return &Scraper{
+		httpClient: httpClient,
+	}
+}
+
+// Scrape scrapes the content of the given url and returns ads found.
 func (s *Scraper) Scrape(ctx context.Context, url string) ([]*scrapers.Item, error) {
 	r, err := s.fetch(ctx, url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error fetching url: %w", err)
+	}
+	defer r.Close()
+
+	items, err := s.processItems(r)
+	if err != nil {
+		return nil, fmt.Errorf("error processing items: %w", err)
 	}
 
-	return s.processItems(r)
+	return items, nil
 }
 
 func (s *Scraper) processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
 	bodyBytes, err := ioutil.ReadAll(body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
-	body.Close()
 
-	r := regexp.MustCompile(`/Ads/details\.asp\?id=\d+`)
-
-	matches := r.FindAll(bodyBytes, -1)
-
+	matches := adPattern.FindAll(bodyBytes, -1)
 	if matches == nil {
-		return nil, errors.New("no matches")
+		return nil, scrapers.ErrNoMatches
 	}
 
 	locMap := make(map[string]struct{})
@@ -61,39 +90,35 @@ func (s *Scraper) processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
 func (s *Scraper) fetch(ctx context.Context, url string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating a new request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", " Mozilla/5.0 (X11; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0")
-	req.Header.Set("Accept", " text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-	req.Header.Set("Accept-Language", " en-US,en;q=0.5")
-	req.Header.Set("Accept-Encoding", "gzip")
-	req.Header.Set("DNT", " 1")
-	req.Header.Set("Connection", " keep-alive")
-	req.Header.Set("Cookie", " ogledov=; CookieConsent=-2")
-	req.Header.Set("Upgrade-Insecure-Requests", " 1")
-	req.Header.Set("Cache-Control", " max-age=0")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 
-	proxyURL, _ := http.ProxyFromEnvironment(req)
+	proxyURL, err := http.ProxyFromEnvironment(req)
+	if err != nil {
+		return nil, fmt.Errorf("error getting proxy from environment: %w", err)
+	}
+
 	if proxyURL != nil {
 		log.WithField("url", proxyURL).Debug("using proxy")
 	}
 
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	res, err := client.Do(req)
+	res, err := s.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error doing a request: %w", err)
 	}
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("invalid status code (%d)", res.StatusCode)
 	}
 
-	return gzip.NewReader(res.Body)
+	gzipR, err := gzip.NewReader(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error creating a gzip reader from response body: %w", err)
+	}
+
+	return gzipR, nil
 }
