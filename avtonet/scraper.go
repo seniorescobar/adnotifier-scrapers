@@ -7,13 +7,14 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strings"
 
 	scrapers "github.com/seniorescobar/adnotifier-scrapers"
 )
 
 var (
 	// adPattern is a pattern for matching new ad urls.
-	adPattern = regexp.MustCompile(`/Ads/details\.asp\?id=\d+`)
+	adPattern = regexp.MustCompile(`/Ads/details\.asp\?id=\d+"`)
 
 	// headers are added to the request.
 	headers = map[string]string{
@@ -73,16 +74,15 @@ func (s *Scraper) processItems(body io.ReadCloser) ([]scrapers.Item, error) {
 		return nil, scrapers.ErrNoMatches
 	}
 
-	locMap := make(map[string]struct{})
-	for _, loc := range matches {
-		locMap[string(loc)] = struct{}{}
-	}
+	items := make([]scrapers.Item, len(matches))
+	for i, m := range matches {
+		url := string(m)
+		url = strings.TrimRight(url, `"`)
+		url = "https://www.avto.net" + url
 
-	items := make([]scrapers.Item, 0, len(locMap))
-	for loc := range locMap {
-		items = append(items, scrapers.Item{
-			URL: "https://www.avto.net" + loc,
-		})
+		items[i] = scrapers.Item{
+			URL: url,
+		}
 	}
 
 	return items, nil
