@@ -51,9 +51,9 @@ func (s *ScraperSuite) TestScrape_Success() {
 	var (
 		url      = "https://www.avto.net/Ads/results.asp"
 		expItems = []scrapers.Item{
+			{URL: "https://www.avto.net/Ads/details.asp?id=16296258"},
 			{URL: "https://www.avto.net/Ads/details.asp?id=16290198"},
 			{URL: "https://www.avto.net/Ads/details.asp?id=15711734"},
-			{URL: "https://www.avto.net/Ads/details.asp?id=16296258"},
 		}
 	)
 
@@ -82,7 +82,9 @@ func (s *ScraperSuite) TestScrape_Success() {
 
 	items, err := s.scraper.Scrape(context.Background(), url)
 	s.NoError(err)
-	s.ElementsMatch(expItems, items)
+	s.Equal(expItems, items)
+
+	s.httpClient.AssertExpectations(s.T())
 }
 
 func (s *ScraperSuite) TestScrape_ErrNewRequest() {
@@ -97,6 +99,8 @@ func (s *ScraperSuite) TestScrape_ErrDo() {
 	items, err := s.scraper.Scrape(context.Background(), "")
 	s.Equal(errFailed, unwrap(err))
 	s.Nil(items)
+
+	s.httpClient.AssertExpectations(s.T())
 }
 
 func (s *ScraperSuite) TestScrape_ErrHttpStatus() {
@@ -110,6 +114,8 @@ func (s *ScraperSuite) TestScrape_ErrHttpStatus() {
 	items, err := s.scraper.Scrape(context.Background(), "")
 	s.EqualError(unwrap(err), "invalid status code (500)")
 	s.Empty(items)
+
+	s.httpClient.AssertExpectations(s.T())
 }
 
 func (s *ScraperSuite) TestScrape_ErrGzip() {
@@ -121,6 +127,8 @@ func (s *ScraperSuite) TestScrape_ErrGzip() {
 	items, err := s.scraper.Scrape(context.Background(), "")
 	s.Equal(io.ErrUnexpectedEOF, unwrap(err))
 	s.Nil(items)
+
+	s.httpClient.AssertExpectations(s.T())
 }
 
 func response(statusCode int, r io.Reader) *http.Response {
@@ -143,6 +151,8 @@ func (s *ScraperSuite) TestScrape_ErrNoMatches() {
 	items, err := s.scraper.Scrape(context.Background(), "")
 	s.Equal(scrapers.ErrNoMatches, unwrap(err))
 	s.Nil(items)
+
+	s.httpClient.AssertExpectations(s.T())
 }
 
 func unwrap(err error) error {
