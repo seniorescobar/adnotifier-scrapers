@@ -51,9 +51,9 @@ func (s *ScraperSuite) TestScrape_Success() {
 	var (
 		url      = "https://www.avto.net/Ads/results.asp"
 		expItems = []scrapers.Item{
+			{URL: "https://www.avto.net/Ads/details.asp?id=16296258"},
 			{URL: "https://www.avto.net/Ads/details.asp?id=16290198"},
 			{URL: "https://www.avto.net/Ads/details.asp?id=15711734"},
-			{URL: "https://www.avto.net/Ads/details.asp?id=16296258"},
 		}
 	)
 
@@ -82,7 +82,7 @@ func (s *ScraperSuite) TestScrape_Success() {
 
 	items, err := s.scraper.Scrape(context.Background(), url)
 	s.NoError(err)
-	s.ElementsMatch(expItems, items)
+	s.Equal(expItems, items)
 }
 
 func (s *ScraperSuite) TestScrape_ErrNewRequest() {
