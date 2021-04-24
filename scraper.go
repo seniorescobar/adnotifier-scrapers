@@ -9,5 +9,5 @@ import (
 var ErrNoMatches = errors.New("no matches")
 
 type Scraper interface {
-	Scrape(ctx context.Context, url string) ([]*Item, error)
+	Scrape(ctx context.Context, url string) ([]Item, error)
 }

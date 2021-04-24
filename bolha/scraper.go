@@ -18,7 +18,7 @@ const (
 
 type Scraper struct{}
 
-func (s *Scraper) Scrape(ctx context.Context, url string) ([]*scrapers.Item, error) {
+func (s *Scraper) Scrape(ctx context.Context, url string) ([]scrapers.Item, error) {
 	r, err := fetch(ctx, url)
 	if err != nil {
 		return nil, err
@@ -28,13 +28,13 @@ func (s *Scraper) Scrape(ctx context.Context, url string) ([]*scrapers.Item, err
 	return processItems(r)
 }
 
-func processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
+func processItems(body io.ReadCloser) ([]scrapers.Item, error) {
 	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	items := make([]*scrapers.Item, 0)
+	items := make([]scrapers.Item, 0)
 	itemNodes := doc.Find(itemSelector)
 
 	if len(itemNodes.Nodes) == 0 {
@@ -49,8 +49,9 @@ func processItems(body io.ReadCloser) ([]*scrapers.Item, error) {
 			return
 		}
 
-		item := scrapers.Item("https://www.bolha.com" + path)
-		items = append(items, &item)
+		items = append(items, scrapers.Item{
+			URL: "https://www.bolha.com" + path,
+		})
 	})
 
 	return items, nil
