@@ -1,34 +1,51 @@
-package avtonet
+package avtonet_test
 
 import (
 	"net/url"
 	"testing"
 
+	"github.com/seniorescobar/adnotifier-scrapers/avtonet"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTransfomer(t *testing.T) {
-	tr := new(Transformer)
-
-	for _, tc := range []struct {
+	tests := []struct {
+		scenario                  string
 		url, urlTransformed, site string
-		e                         error
+		err                       error
 	}{
-		{"https://www.avto.net/abc", "https://www.avto.net/abc", "avtonet", nil},
-		{"http://www.avto.net/abc", "https://www.avto.net/abc", "avtonet", nil},
-		{"https://avto.net/abc", "https://www.avto.net/abc", "avtonet", nil},
-	} {
-		ut, err := tr.Transform(strToURL(tc.url))
-
-		assert.Equal(t, tc.e, err)
-		assert.Equal(t, tc.urlTransformed, ut.String())
+		{
+			scenario:       "no change",
+			url:            "https://www.avto.net/abc",
+			urlTransformed: "https://www.avto.net/abc",
+			site:           "avtonet",
+		},
+		{
+			scenario:       "http to https",
+			url:            "http://www.avto.net/abc",
+			urlTransformed: "https://www.avto.net/abc",
+			site:           "avtonet",
+		},
+		{
+			scenario:       "prefix www",
+			url:            "https://avto.net/abc",
+			urlTransformed: "https://www.avto.net/abc",
+			site:           "avtonet",
+		},
 	}
-}
 
-func strToURL(s string) *url.URL {
-	u, err := url.Parse(s)
-	if err != nil {
-		panic(err)
+	for _, tt := range tests {
+		tt := tt
+
+		t.Run(tt.scenario, func(t *testing.T) {
+			urlParsed, err := url.Parse(tt.url)
+			require.NoError(t, err)
+
+			tr := avtonet.NewTransformer()
+			ut, err := tr.Transform(urlParsed)
+			assert.Equal(t, tt.err, err)
+			assert.Equal(t, tt.urlTransformed, ut.String())
+		})
 	}
-	return u
 }
