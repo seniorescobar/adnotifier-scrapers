@@ -13,7 +13,7 @@ import (
 
 type Scraper struct{}
 
-func (s *Scraper) Scrape(ctx context.Context, url string) ([]*scrapers.Item, error) {
+func (s *Scraper) Scrape(ctx context.Context, url string) ([]scrapers.Item, error) {
 	body, err := fetch(url)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func fetch(url string) (io.ReadCloser, error) {
 	return gzip.NewReader(res.Body)
 }
 
-func process(body io.ReadCloser) ([]*scrapers.Item, error) {
+func process(body io.ReadCloser) ([]scrapers.Item, error) {
 	defer body.Close()
 
 	type (
@@ -77,10 +77,11 @@ func process(body io.ReadCloser) ([]*scrapers.Item, error) {
 		return nil, err
 	}
 
-	items := make([]*scrapers.Item, len(r.Items))
+	items := make([]scrapers.Item, len(r.Items))
 	for i, it := range r.Items {
-		item := scrapers.Item(it.URL)
-		items[i] = &item
+		items[i] = scrapers.Item{
+			URL: it.URL,
+		}
 	}
 
 	return items, nil

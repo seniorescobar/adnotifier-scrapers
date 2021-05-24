@@ -116,8 +116,9 @@ func (s *Scraper) processItems(body io.Reader) ([]scrapers.Item, error) {
 			return
 		}
 
-		item := scrapers.Item(path)
-		items = append(items, &item)
+		items = append(items, scrapers.Item{
+			URL: path,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error iterating through item nodes: %w", err)
